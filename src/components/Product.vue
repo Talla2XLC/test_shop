@@ -73,10 +73,10 @@ export default {
     // вычисляет стоимость, внедряет маркеры повышения\понижения цены товара
     calculatePrice() {
       const newPrice = +(this.product.PriceUSD * this.rate).toFixed(2);
-      if (this.priceRUB > newPrice) {
+      if (this.priceRUB > newPrice && this.priceRUB !== 0) {
         this.priceDecreased = true;
         this.priceIncreased = false
-      } else if (this.priceRUB < newPrice) {
+      } else if (this.priceRUB < newPrice && this.priceRUB !== 0) {
         this.priceDecreased = false;
         this.priceIncreased = true
       } else {
