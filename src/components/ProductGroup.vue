@@ -2,6 +2,7 @@
   <div
     class="productGroup list-group"
     :class="{dropup: isOpen}"
+    v-if="hasProducts"
   >
     <button
       class="btn btn-secondary dropdown-toggle"
@@ -12,7 +13,8 @@
     <Product
       v-for="product in productGroup.products"
       :key="product.T"
-      :product="product"
+      :productID="product.T"
+      :catalogID="product.G"
       :isOpen="isOpen"
     />
   </div>
@@ -25,20 +27,49 @@ export default {
   name: 'productGroup',
   data() {
     return {
-      isOpen: false
+      isOpen: false,
+      hasProductsInCart: false
     }
   },
   props: {
-    productGroup: Object
+    catalogID: [Number, String],
+  },
+  computed: {
+    productGroup() {
+      return this.$store.state.catalog[this.catalogID]
+    },
+
+    // Проверяем на наличие продукции данной категории
+    hasProducts() {
+      return Object.prototype.hasOwnProperty.call(this.productGroup, 'products');
+    },
+
+    cart: {
+      get() {
+        return this.$store.state.cart
+      }
+    }
   },
   components: {
     Product
   },
   methods: {
     toggleList() {
-      console.log(1);
       this.isOpen = !this.isOpen
+    },
+    // проверяем, есть ли товары данной группы в корзине
+    checkProductsInCart() {
+      this.cart.forEach(el => {
+        if (+el.G === +this.catalogID){
+          this.hasProductsInCart = true;
+          this.isOpen = true;
+        }
+      });
     }
+  },
+  mounted() {
+    // Открываем список группы товаров, если хотябы один из товаров представлен в корзине
+    this.checkProductsInCart()
   }
 }
 </script>

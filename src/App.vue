@@ -1,84 +1,98 @@
 <template>
   <div id="app">
-    <router-view :loading="loading"/>
+    <Header v-if="!isLoading"/>
+    <router-view :loading="isLoading" />
   </div>
 </template>
 
 <script>
-
 import axios from "axios";
+import Header from "@/components/Header";
 
 export default {
   name: 'App',
   data() {
     return {
-      // Не рендерим карточки продуктов, пока не обновим данные по каталогу\продуктам
-      loading: true
+      catalog: [],
+      products: [],
+
+      // Фиксируем, идёт ли загрузка продукции
+      productsLoading: true,
+
+      // Фиксируем, идёт ли загрузка каталога
+      catalogLoading: true,
+
+      // Фиксируем, идёт ли загрузка курса валют
+      exchangeRateLoading: true
     }
   },
   components: {
+    Header
   },
   computed: {
-    catalog() {
-      return this.$store.state.catalog;
-    },
-    products() {
-      return this.$store.state.products;
-    },
     exchangeRate() {
       return this.$store.state.exchangeRate;
+    },
+
+    // Не рендерим карточки продуктов, пока не обновим данные по каталогу, продуктам и курсу валют
+    isLoading() {
+      return (this.productsLoading && this.catalogLoading && this.exchangeRateLoading)
     }
   },
-  mounted() {
+  async mounted() {
     // После внедрения в DOM основного компонента приложения App.vue,
     // загружаем данные об актуальном курсе валют и обновляем данные о каталоге продуктции
     // и об имеющихся в наличии продуктах из файлов data.json и names.json
-    this.updateExchangeRate();
-    this.updateCatalog();
+    await this.updateExchangeRate();
+    await this.updateCatalog();
   },
   methods: {
 
     // Метод позволяет получить актуальные курсы валют от ЦБ РФ
-    updateExchangeRate() {
-      axios
-          .get("https://www.cbr-xml-daily.ru/daily_json.js")
-          .then(response => {
-            const exchangeRate = +response.data.Valute.USD.Value;
-            this.$store.dispatch("updateExchangeRate", exchangeRate);
-          })
+    async updateExchangeRate() {
+      await axios
+        .get("https://www.cbr-xml-daily.ru/daily_json.js")
+        .then(response => {
+          const exchangeRate = +response.data.Valute.USD.Value;
+          this.$store.dispatch("updateExchangeRate", exchangeRate);
+          this.exchangeRateLoading = false;
+        })
     },
 
-    // Метод позволяет обновить данные о каталоге продукции во Vuex
-    updateCatalog() {
-      axios
+    // Метод позволяет обновить данные о каталоге продукции
+    async updateCatalog() {
+      await axios
         .get("names.json")
         .then(response => {
-          const catalog = response.data;
-          this.$store.dispatch("updateCatalog", catalog);
-          this.updateProducts();
+          this.catalog = response.data;
+          this.updateProducts().then(() => {
+            this.$store.dispatch("updateProducts", this.products);
+            this.productsLoading = false;
+          });
         })
     },
 
     // Метод позволяет обновить данные об имеющейся продукции во Vuex
-    updateProducts() {
-      axios
+    async updateProducts() {
+      await axios
         .get("data.json")
         .then(response => {
           const products = response.data.Value.Goods;
           products.forEach(product => {
-              this.setAttributesNames(product);
-              this.addProductsToCatalog(product);
+            this.setAttributesNames(product);
+            this.addProductsToCatalog(product);
           });
-          this.$store.dispatch("updateProducts", products);
+          this.products = products;
         })
     },
 
-    // Метод позволяет распределить имеющуюся продукцию по каталогу и завершить статус "Загрузка"
+    // Метод позволяет распределить имеющуюся продукцию по каталогу, обновить Vuex и завершить статус "Загрузка"
     addProductsToCatalog(product){
       this.catalog[product.G].products ?
-          this.catalog[product.G].products.push(product) :
-          this.catalog[product.G].products = [product]
-      this.loading = false;
+        this.catalog[product.G].products.push(product) :
+        this.catalog[product.G].products = [product]
+    this.$store.dispatch("updateCatalog", this.catalog);
+    this.catalogLoading = false;
     },
 
     // Метод позволяет сопоставить id продукта и группы товаров и присвоить продукции актуальные названия из справочника
@@ -87,6 +101,7 @@ export default {
       this.setProductName(product);
       this.setProductQty(product);
       this.setProductPrice(product);
+      this.setProductCartStatus(product);
     },
 
     // Метод присваивает актуальное название группы товаров продукта по факту сопоставления со справочником продукции
@@ -99,15 +114,19 @@ export default {
       product.Name = this.catalog[product.G].B[product.T].N;
     },
 
-    // Метод добавляет количяество продукта за счет хорошо читаемого свойство Qty объекту продукта
+    // Метод добавляет количество продукта за счет хорошо читаемого свойство Qty объекту продукта
     setProductQty(product){
       product.Qty = product.P;
     },
 
-    // Метод вычисляет и добавляет стоимость продукта согласно курса ЦБ РФ (USD + RUB)
+    // Метод добавляет стоимость продукта за счет хорошо читаемого свойство PriceUSD объекту продукта
     setProductPrice(product){
       product.PriceUSD = product.C;
-      product.PriceRUB = +(product.PriceUSD * this.exchangeRate).toFixed(2);
+    },
+
+    // Метод устанваливает свойство объекту товара, отвечающее за его состаояние нахождения в корзине
+    setProductCartStatus(product){
+      product.inCart = false;
     }
   }
 }
@@ -121,5 +140,6 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 60px;
+  padding: 0 5%
 }
 </style>

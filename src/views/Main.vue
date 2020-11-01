@@ -1,6 +1,6 @@
 <template>
-  <div class="main_page" v-if="!$attrs.loading">
-    <ProductGroup v-for="item in catalog" :key="item.index" :productGroup="item" />
+  <div class="main_page" v-if="!loading && catalog">
+    <ProductGroup v-for="(value, key) in catalog" :key="key" :catalogID="key" />
   </div>
 </template>
 
@@ -9,19 +9,16 @@ import ProductGroup from "@/components/ProductGroup";
 
 export default {
   name: "Main",
-  computed: {
-    catalog() {
-      let correctedCatalog = [];
-      Object.values(this.$store.state.catalog).forEach(el => {
-        if (el.products) {
-          correctedCatalog.push(el);
-        }
-      })
-      return correctedCatalog;
-    }
-  },
   components: {
     ProductGroup
+  },
+  props: {
+    loading: Boolean
+  },
+  computed: {
+    catalog() {
+      return this.$store.state.catalog;
+    }
   }
 };
 </script>
@@ -36,6 +33,5 @@ export default {
   display: -o-flex
   display: flex
   flex-flow: row wrap
-  padding: 0 5%
   justify-content: space-between
 </style>
